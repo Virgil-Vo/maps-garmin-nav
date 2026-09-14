@@ -16,8 +16,8 @@ class NavApp extends Application.AppBase {
         Communications.registerForPhoneAppMessages(null);
     }
 
-    function getInitialView() as Array<Views or InputDelegates>? {
-        return [new $.NavView(), new $.NavDelegate()] as Array<Views or InputDelegates>;
+    function getInitialView() {
+        return [new NavView(), new NavDelegate()];
     }
 
     function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {

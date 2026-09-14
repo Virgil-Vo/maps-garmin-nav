@@ -18,6 +18,9 @@ enum Maneuver {
   depart,
   keepLeft,
   keepRight,
+  roundaboutStraight,
+  roundaboutLeft,
+  roundaboutRight,
 }
 
 extension ManeuverVisual on Maneuver {
@@ -28,7 +31,10 @@ extension ManeuverVisual on Maneuver {
       Maneuver.slightLeft || Maneuver.keepLeft => Icons.turn_slight_left,
       Maneuver.slightRight || Maneuver.keepRight => Icons.turn_slight_right,
       Maneuver.uTurn => Icons.u_turn_left,
-      Maneuver.roundabout => Icons.roundabout_left,
+      Maneuver.roundabout => Icons.arrow_upward,
+      Maneuver.roundaboutStraight => Icons.arrow_upward,
+      Maneuver.roundaboutLeft => Icons.turn_left,
+      Maneuver.roundaboutRight => Icons.turn_right,
       Maneuver.merge => Icons.merge,
       Maneuver.arrive => Icons.flag,
       Maneuver.depart => Icons.south,
@@ -47,6 +53,9 @@ extension ManeuverVisual on Maneuver {
       Maneuver.sharpRight => 'Sharp right',
       Maneuver.uTurn => 'U-turn',
       Maneuver.roundabout => 'Roundabout',
+      Maneuver.roundaboutStraight => 'Roundabout — straight',
+      Maneuver.roundaboutLeft => 'Roundabout — left',
+      Maneuver.roundaboutRight => 'Roundabout — right',
       Maneuver.merge => 'Merge',
       Maneuver.arrive => 'Arrive',
       Maneuver.depart => 'Depart',
@@ -65,6 +74,7 @@ class NavInstruction {
     required this.distance,
     required this.road,
     required this.instruction,
+    required this.arrivalTime,
   });
 
   factory NavInstruction.fromMap(Map<dynamic, dynamic> map) {
@@ -74,6 +84,7 @@ class NavInstruction {
       distance: (map['d'] as String?) ?? '',
       road: (map['r'] as String?) ?? '',
       instruction: (map['i'] as String?) ?? '',
+      arrivalTime: (map['a'] as String?) ?? '',
     );
   }
 
@@ -82,6 +93,7 @@ class NavInstruction {
   final String distance;
   final String road;
   final String instruction;
+  final String arrivalTime;
 
   bool get isActive =>
       status == NavStatus.navigating || status == NavStatus.rerouting;
@@ -142,6 +154,7 @@ class CompanionStatus {
         distance: '',
         road: '',
         instruction: '',
+        arrivalTime: '',
       ),
     );
   }

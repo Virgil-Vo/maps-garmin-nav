@@ -53,7 +53,9 @@ watch/gen/
 developer_key*
 
 # FVM
-.fvm/*
 !.fvm/fvm_config.json
 !.fvm/release
 !.fvm/version
+
+# FVM Version Cache
+.fvm/

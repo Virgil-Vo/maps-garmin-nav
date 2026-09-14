@@ -34,11 +34,29 @@ class NavBridge {
     return _methods.invokeMethod('startForeground');
   }
 
+  Future<void> setTethered(bool enabled) {
+    return _methods.invokeMethod('setTethered', enabled);
+  }
+
   Future<void> initializeGarmin() {
     return _methods.invokeMethod('initializeGarmin');
   }
 
   Future<void> openWatchApp() {
     return _methods.invokeMethod('openWatchApp');
+  }
+
+  Future<Map<dynamic, dynamic>> getWatchDisplaySettings() async {
+    final result = await _methods.invokeMethod<dynamic>(
+      'getWatchDisplaySettings',
+    );
+    if (result is Map) {
+      return Map<dynamic, dynamic>.from(result);
+    }
+    return <dynamic, dynamic>{};
+  }
+
+  Future<void> setWatchDisplaySettings(Map<String, dynamic> settings) {
+    return _methods.invokeMethod('setWatchDisplaySettings', settings);
   }
 }

@@ -28,6 +28,8 @@ fvm flutter pub get
 fvm flutter run
 ```
 
+In Cursor/VS Code, pick your phone or emulator from the **device selector in the status bar** (bottom-right, e.g. `sdk gphone64 …` or your phone model), then use **Run Android app**. The launch config does not hard-code a device ID.
+
 On first launch:
 
 1. Allow **notification access** (so the app can read Maps guidance)
@@ -42,11 +44,17 @@ Connect IQ UUID (must match the watch app): `2467c647-df37-4935-94d8-4820cf22cd1
 
 ### Simulator (phone ↔ Connect IQ sim)
 
+1. On the PC: **Run Garmin app** (Connect IQ simulator with the watch app loaded).
+2. USB phone to the PC, then:
+
 ```bash
-adb forward tcp:7381 tcp:7381
+./scripts/adb_forward.sh
 ```
 
-Then use a debug build and set the companion to tethered mode if you add that toggle later. Physical watches use a wireless connection through Garmin Connect.
+3. In Cursor: pick your phone in the **device selector**, then **Run Android app (CIQ simulator)** (sets `CIQ_TETHERED=true` and calls `setTethered` before the Garmin SDK starts when you tap **Start watch bridge**).
+4. On the phone: complete permissions, then **Start watch bridge**, and run Maps navigation.
+
+Physical watches: use **Run Android app** (wireless via Garmin Connect; no `adb forward`).
 
 ## Watch app (Connect IQ)
 

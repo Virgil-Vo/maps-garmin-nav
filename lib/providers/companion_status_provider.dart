@@ -1,6 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:maps_garmin_nav/core/connect_iq_flags.dart';
 import 'package:maps_garmin_nav/data/nav_bridge.dart';
 import 'package:maps_garmin_nav/data/nav_models.dart';
+import 'package:maps_garmin_nav/providers/watch_display_settings_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 final companionStatusProvider =
@@ -48,6 +50,7 @@ class CompanionStatusNotifier extends Notifier<CompanionStatus> {
     } catch (_) {
       // Keep the last known status if the platform channel is unavailable.
     }
+    await ref.read(watchDisplaySettingsProvider.notifier).loadFromPlatform();
   }
 
   Future<void> requestNotifications() async {
@@ -73,6 +76,9 @@ class CompanionStatusNotifier extends Notifier<CompanionStatus> {
   }
 
   Future<void> startBridge() async {
+    if (connectIqTetheredSimulator) {
+      await NavBridge.instance.setTethered(true);
+    }
     await NavBridge.instance.initializeGarmin();
     await NavBridge.instance.startForeground();
     await refresh();

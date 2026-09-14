@@ -10,6 +10,7 @@ import com.mapsgarmin.maps_garmin_nav.garmin.ConnectIqBridge
 import com.mapsgarmin.maps_garmin_nav.nav.MapsNavListenerService
 import com.mapsgarmin.maps_garmin_nav.nav.NavEvent
 import com.mapsgarmin.maps_garmin_nav.nav.NavEventBus
+import com.mapsgarmin.maps_garmin_nav.nav.WatchDisplaySettings
 import com.mapsgarmin.maps_garmin_nav.service.NavForegroundService
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -51,6 +52,22 @@ object NavChannels {
                         val enabled = call.arguments as? Boolean ?: false
                         ConnectIqBridge.get(activity).setTethered(enabled)
                         result.success(null)
+                    }
+                    "getWatchDisplaySettings" -> {
+                        result.success(WatchDisplaySettings.load(activity).toFlutterMap())
+                    }
+                    "setWatchDisplaySettings" -> {
+                        try {
+                            val raw = call.arguments as? Map<*, *>
+                            val settings = WatchDisplaySettings.fromFlutterMap(raw)
+                            WatchDisplaySettings.save(activity, settings)
+                            val bridge = ConnectIqBridge.get(activity)
+                            bridge.ensureInitialized(showUi = false)
+                            bridge.syncDisplaySettings()
+                            result.success(null)
+                        } catch (error: Exception) {
+                            result.error("SETTINGS", error.message, null)
+                        }
                     }
                     else -> result.notImplemented()
                 }

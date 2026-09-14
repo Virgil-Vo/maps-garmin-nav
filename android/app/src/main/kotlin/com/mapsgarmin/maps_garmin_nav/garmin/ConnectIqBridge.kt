@@ -10,6 +10,7 @@ import com.garmin.android.connectiq.exception.ServiceUnavailableException
 import com.mapsgarmin.maps_garmin_nav.WatchAppIds
 import com.mapsgarmin.maps_garmin_nav.nav.NavEventBus
 import com.mapsgarmin.maps_garmin_nav.nav.NavPayload
+import com.mapsgarmin.maps_garmin_nav.nav.WatchDisplaySettings
 
 class ConnectIqBridge private constructor(
     context: Context,
@@ -22,8 +23,11 @@ class ConnectIqBridge private constructor(
     private var inFlight = false
     private var pending: NavPayload? = null
     private var lastSent: NavPayload? = null
+    private var lastSentMap: HashMap<String, Any>? = null
     private var openedForNav = false
     private var tethered = false
+    private var pendingConfigSync = false
+    private var lastConfigMap: HashMap<String, Any>? = null
 
     @Synchronized
     fun ensureInitialized(showUi: Boolean) {
@@ -48,6 +52,12 @@ class ConnectIqBridge private constructor(
     fun send(payload: NavPayload) {
         pending = payload
         flush()
+    }
+
+    @Synchronized
+    fun syncDisplaySettings() {
+        pendingConfigSync = true
+        flushConfig()
     }
 
     @Synchronized
@@ -166,6 +176,7 @@ class ConnectIqBridge private constructor(
                             ),
                         )
                         flush()
+                        syncDisplaySettings()
                     }
 
                     override fun onApplicationNotInstalled(applicationId: String) {
@@ -201,7 +212,9 @@ class ConnectIqBridge private constructor(
         if (inFlight) {
             return
         }
-        if (payload == lastSent) {
+        val display = WatchDisplaySettings.load(appContext)
+        val map = payload.toWatchMap(display)
+        if (mapsEqual(map, lastSentMap)) {
             pending = null
             return
         }
@@ -218,24 +231,75 @@ class ConnectIqBridge private constructor(
         if (payload.status == NavPayload.STATUS_ENDED || payload.status == NavPayload.STATUS_IDLE) {
             openedForNav = false
         }
-        inFlight = true
         pending = null
+        sendMap(map, onSuccess = { lastSent = payload })
+    }
+
+    @Synchronized
+    private fun sendMap(
+        map: HashMap<String, Any>,
+        onSuccess: (() -> Unit)? = null,
+    ) {
+        if (inFlight) {
+            return
+        }
+        val sdk = connectIQ ?: return
+        val current = device ?: return
+        if (current.status != IQDevice.IQDeviceStatus.CONNECTED) {
+            emit(currentStatus().copy(deviceConnected = false, lastError = "Watch is not connected"))
+            return
+        }
+        inFlight = true
         try {
-            sdk.sendMessage(current, iqApp, payload.toWatchMap()) { _, _, status ->
+            sdk.sendMessage(current, iqApp, map) { _, _, status ->
                 synchronized(this) {
                     inFlight = false
                     if (status == ConnectIQ.IQMessageStatus.SUCCESS) {
-                        lastSent = payload
+                        lastSentMap = HashMap(map)
+                        if (map["t"] == WatchDisplaySettings.MSG_CONFIG) {
+                            lastConfigMap = HashMap(map)
+                            pendingConfigSync = false
+                        }
+                        onSuccess?.invoke()
                     } else {
                         emit(currentStatus().copy(lastError = status.name))
                     }
                     flush()
+                    flushConfig()
                 }
             }
         } catch (error: Exception) {
             inFlight = false
             emit(currentStatus().copy(lastError = error.message))
         }
+    }
+
+    @Synchronized
+    private fun flushConfig() {
+        if (!pendingConfigSync || inFlight) {
+            return
+        }
+        val map = WatchDisplaySettings.load(appContext).toConfigMap()
+        if (mapsEqual(map, lastConfigMap)) {
+            pendingConfigSync = false
+            return
+        }
+        val sdk = connectIQ ?: return
+        val current = device ?: return
+        if (current.status != IQDevice.IQDeviceStatus.CONNECTED) {
+            return
+        }
+        sendMap(map)
+    }
+
+    private fun mapsEqual(a: HashMap<String, Any>?, b: HashMap<String, Any>?): Boolean {
+        if (a == null || b == null) {
+            return a == b
+        }
+        if (a.size != b.size) {
+            return false
+        }
+        return a.entries.all { entry -> b[entry.key] == entry.value }
     }
 
     private fun shutdown() {

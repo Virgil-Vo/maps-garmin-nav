@@ -12,6 +12,16 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methods, (call) async {
+          if (call.method == 'getWatchDisplaySettings') {
+            return {
+              'showManeuverIcon': true,
+              'showDistance': true,
+              'showStreetName': true,
+              'showArrivalTime': false,
+              'textScale': 1,
+              'iconScale': 1,
+            };
+          }
           if (call.method == 'getStatus') {
             return {
               'notificationListenerEnabled': false,
@@ -48,7 +58,9 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: MapsGarminApp()));
     await tester.pump();
     expect(find.text('Maps Garmin Nav'), findsOneWidget);
+    expect(find.text('Watch display'), findsOneWidget);
     expect(find.text('Permissions'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Start watch bridge'), 300);
     expect(find.text('Start watch bridge'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Garmin'), 300);
     expect(find.text('Garmin'), findsOneWidget);

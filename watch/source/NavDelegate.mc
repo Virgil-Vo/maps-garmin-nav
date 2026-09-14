@@ -1,3 +1,4 @@
+import Toybox.Lang;
 import Toybox.WatchUi;
 
 class NavDelegate extends WatchUi.BehaviorDelegate {

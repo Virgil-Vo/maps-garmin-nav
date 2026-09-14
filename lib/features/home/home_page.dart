@@ -6,6 +6,7 @@ import 'package:maps_garmin_nav/data/nav_bridge.dart';
 import 'package:maps_garmin_nav/features/home/instruction_preview.dart';
 import 'package:maps_garmin_nav/features/home/permission_tile.dart';
 import 'package:maps_garmin_nav/features/home/status_row.dart';
+import 'package:maps_garmin_nav/features/home/watch_display_settings_section.dart';
 import 'package:maps_garmin_nav/providers/companion_status_provider.dart';
 
 class HomePage extends HookConsumerWidget {
@@ -28,6 +29,8 @@ class HomePage extends HookConsumerWidget {
       padding: const EdgeInsets.only(bottom: Spacing.xl),
       children: [
         InstructionPreview(instruction: status.instruction),
+        const _SectionTitle('Watch display'),
+        const WatchDisplaySettingsSection(),
         const _SectionTitle('Permissions'),
         PermissionTile(
           title: 'Notification access',

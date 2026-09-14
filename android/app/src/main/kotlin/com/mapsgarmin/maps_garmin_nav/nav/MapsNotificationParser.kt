@@ -19,53 +19,96 @@ class MapsNotificationParser(
         }
 
         val extras = sbn.notification.extras
-        var distance = firstNonBlank(
-            extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
-        )
-        var description = firstNonBlank(
-            extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
-            extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString(),
-        )
-
+        var remoteTexts = emptyMap<String, String>()
         try {
-            val remote = parseRemoteViews(sbn.notification)
-            if (remote.distance.isNotBlank()) {
-                distance = remote.distance
-            }
-            if (remote.description.isNotBlank()) {
-                description = remote.description
-            }
+            remoteTexts = parseRemoteViews(sbn.notification).texts
         } catch (_: Exception) {
             // Maps layouts change; extras remain the fallback.
         }
 
-        val combined = listOf(distance, description).filter { it.isNotBlank() }
-        if (combined.any { ManeuverClassifier.isRerouting(it) }) {
-            return NavPayload(
-                status = NavPayload.STATUS_REROUTING,
-                maneuver = Maneuver.UNKNOWN,
-                distance = "",
-                road = "",
-                instruction = "Rerouting",
+        val titleLine =
+            firstNonBlank(
+                extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+                extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString(),
+                remoteTexts["alt_title"],
+                remoteTexts["nav_title"],
             )
+        val extraTextLine =
+            firstNonBlank(
+                extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+                extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
+                extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString(),
+                remoteTexts["alt_text"],
+                remoteTexts["nav_text"],
+            )
+        val shortDistance =
+            firstNonBlank(
+                extras.getCharSequence("android.shortCriticalText")?.toString(),
+                remoteTexts["short_critical_text"],
+            )
+        val etaLine =
+            firstNonBlank(
+                extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
+                remoteTexts["alt_subtext"],
+                remoteTexts["nav_subtext"],
+            )
+
+        val combined = listOf(titleLine, etaLine).filter { it.isNotBlank() }
+        if (combined.any { ManeuverClassifier.isRerouting(it) }) {
+            val payload =
+                NavPayload(
+                    status = NavPayload.STATUS_REROUTING,
+                    maneuver = Maneuver.UNKNOWN,
+                    distance = "",
+                    road = "",
+                    instruction = "Rerouting",
+                )
+            MapsNotificationLogger.log(sbn, remoteTexts, payload)
+            return payload
         }
 
-        val (resolvedDistance, instruction) = resolveDistanceAndInstruction(distance, description)
-        if (instruction.isBlank() && resolvedDistance.isBlank()) {
+        val peeled = ManeuverClassifier.peelDistanceAndRest(titleLine)
+        val peeledExtra = ManeuverClassifier.peelDistanceAndRest(extraTextLine)
+        val distance =
+            when {
+                shortDistance.isNotBlank() &&
+                    ManeuverClassifier.looksLikeDistance(shortDistance) ->
+                    shortDistance
+                peeled.first.isNotBlank() -> peeled.first
+                peeledExtra.first.isNotBlank() -> peeledExtra.first
+                else -> ""
+            }
+        val maneuverLine =
+            NavTextNormalizer.withoutArrivalTime(
+                peeled.second.ifBlank { titleLine }.ifBlank { extraTextLine },
+            )
+        if (maneuverLine.isBlank() && distance.isBlank()) {
+            MapsNotificationLogger.log(sbn, remoteTexts, null)
             return null
         }
 
-        val (turn, road) = ManeuverClassifier.splitInstruction(instruction)
-        return NavPayload(
-            status = NavPayload.STATUS_NAVIGATING,
-            maneuver = ManeuverClassifier.classify(instruction),
-            distance = resolvedDistance,
-            road = road.ifBlank { instruction },
-            instruction = turn.ifBlank { instruction },
-        )
+        val arrivalTime = NavTextNormalizer.extractArrivalTime(etaLine, titleLine, maneuverLine)
+        val (turn, roadPart) = ManeuverClassifier.splitInstruction(maneuverLine)
+        val maneuverSource =
+            turn.ifBlank { ManeuverClassifier.sanitizeForManeuver(maneuverLine) }
+        val turnText = NavTextNormalizer.withoutArrivalTime(turn.ifBlank { maneuverLine })
+        val street =
+            ManeuverClassifier.targetStreet(
+                NavTextNormalizer.withoutArrivalTime(roadPart.ifBlank { maneuverLine }),
+                maneuverLine,
+            )
+        val classifyText = maneuverSource.ifBlank { maneuverLine }
+        val payload =
+            NavPayload(
+                status = NavPayload.STATUS_NAVIGATING,
+                maneuver = ManeuverClassifier.classify(classifyText),
+                distance = distance,
+                road = street,
+                instruction = turnText,
+                arrivalTime = arrivalTime,
+            )
+        MapsNotificationLogger.log(sbn, remoteTexts, payload)
+        return payload
     }
 
     private fun isMapsNavigation(sbn: StatusBarNotification): Boolean {
@@ -78,27 +121,8 @@ class MapsNotificationParser(
         return sbn.id == 1 || sbn.notification.flags and Notification.FLAG_ONGOING_EVENT != 0
     }
 
-    private fun resolveDistanceAndInstruction(
-        first: String,
-        second: String,
-    ): Pair<String, String> {
-        val a = first.trim()
-        val b = second.trim()
-        return when {
-            ManeuverClassifier.looksLikeDistance(a) -> a to b
-            ManeuverClassifier.looksLikeDistance(b) -> b to a
-            else -> {
-                val parts = "$a $b".split("·", "•", "-", "|").map { it.trim() }
-                val dist = parts.firstOrNull { ManeuverClassifier.looksLikeDistance(it) }.orEmpty()
-                val rest = parts.filterNot { it == dist || it.isEmpty() }.joinToString(" ")
-                dist to rest.ifBlank { b.ifBlank { a } }
-            }
-        }
-    }
-
     private data class RemoteParsed(
-        val distance: String = "",
-        val description: String = "",
+        val texts: Map<String, String> = emptyMap(),
     )
 
     private fun parseRemoteViews(notification: Notification): RemoteParsed {
@@ -110,18 +134,7 @@ class MapsNotificationParser(
         remoteViews.reapply(mapsContext, group)
         val texts = linkedMapOf<String, String>()
         collectTexts(group, mapsContext, texts)
-        val distance = firstNonBlank(
-            texts["nav_title"],
-            texts.values.firstOrNull { ManeuverClassifier.looksLikeDistance(it) },
-        )
-        val description = firstNonBlank(
-            texts["nav_description"],
-            texts["lockscreen_directions"],
-            texts["lockscreen_oneliner"],
-            texts["title"]?.takeIf { !ManeuverClassifier.looksLikeDistance(it) },
-            texts["text"]?.takeIf { !ManeuverClassifier.looksLikeDistance(it) },
-        )
-        return RemoteParsed(distance = distance, description = description)
+        return RemoteParsed(texts = texts)
     }
 
     private fun contentView(notification: Notification): RemoteViews? {

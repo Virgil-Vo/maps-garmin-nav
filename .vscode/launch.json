@@ -1,0 +1,66 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run setup",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "./scripts/setup.sh",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "JAVA_HOME": "${env:HOME}/.local/jdk",
+        "PATH": "${env:HOME}/.local/jdk/bin:${env:HOME}/.local/bin:${env:PATH}"
+      }
+    },
+    {
+      "name": "Run Android app",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "Run Android app (CIQ simulator)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=CIQ_TETHERED=true"]
+    },
+    {
+      "name": "Run Garmin app",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "./scripts/run_garmin.sh ${input:garminDevice}",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "JAVA_HOME": "${env:HOME}/.local/jdk",
+        "PATH": "${env:HOME}/.local/jdk/bin:${env:HOME}/.local/bin:${env:PATH}"
+      }
+    },
+    {
+      "name": "Run all tests",
+      "type": "dart",
+      "request": "launch",
+      "program": "test/"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "garminDevice",
+      "type": "pickString",
+      "description": "Connect IQ device / simulator",
+      "default": "fr255",
+      "options": [
+        {
+          "label": "Forerunner 255",
+          "value": "fr255"
+        },
+        {
+          "label": "Forerunner 255 Music",
+          "value": "fr255m"
+        }
+      ]
+    }
+  ]
+}
