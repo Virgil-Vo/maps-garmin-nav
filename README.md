@@ -20,11 +20,12 @@ Maps notification layouts are unofficial and can change when Google updates Maps
 
 ## Phone app (Flutter)
 
-Requires **Java 17–21** to build. Android Studio’s bundled JBR 25 is not compatible with this Flutter/Gradle combination.
+Uses **[FVM](https://fvm.app)** with **Flutter 3.47.4** (see `.fvmrc`). Android builds use AGP 9.1 / Gradle 9.3.1 and work with Android Studio’s bundled **Java 25** JDK.
 
 ```bash
-flutter pub get
-flutter run
+fvm install
+fvm flutter pub get
+fvm flutter run
 ```
 
 On first launch:
