@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_listener_label">Maps navigation listener</string>
+    <string name="nav_channel_id">nav_bridge</string>
+    <string name="nav_channel_name">Navigation bridge</string>
+    <string name="nav_channel_desc">Keeps Maps-to-Garmin mirroring running in the background</string>
+    <string name="nav_notification_title">Maps Garmin Nav</string>
+    <string name="nav_notification_idle">Waiting for Google Maps navigation</string>
+</resources>
